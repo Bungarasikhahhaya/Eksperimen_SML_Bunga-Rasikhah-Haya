@@ -1,15 +1,30 @@
+"""
+=============================================================================
+PROYEK PREDIKSI PENYAKIT JANTUNG (HEART DISEASE PREDICTION)
+=============================================================================
+Sumber Dataset: UCI Machine Learning Repository / Kaggle
+Link Dataset: https://www.kaggle.com/datasets/johnsmith88/heart-disease-dataset
+
+Gambaran Singkat Dataset:
+Dataset ini digunakan untuk memprediksi apakah seorang pasien memiliki risiko 
+penyakit jantung berdasarkan 14 atribut klinis kesehatan. Atribut tersebut 
+meliputi informasi demografis (usia, jenis kelamin), tipe nyeri dada (cp), 
+tekanan darah (trestbps), kolesterol (chol), gula darah (fbs), hasil EKG (restecg), 
+detak jantung maksimal (thalach), hingga status akhir (target: 0 = Sehat, 1 = Sakit).
+=============================================================================
+"""
+
 import os
 import pandas as pd
 import mlflow
 import mlflow.sklearn
 import dagshub
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score
 
 def run_retraining():
     # 1. Integrasi Otomatis ke DagsHub (Mendukung Otomatisasi CI)
     try:
-        # Cek apakah token tersedia di environment variable
         if "DAGSHUB_TOKEN" in os.environ:
             dagshub.auth.add_app_token(token=os.environ["DAGSHUB_TOKEN"])
             
@@ -19,11 +34,9 @@ def run_retraining():
         print(f"⚠️ Tracking dialihkan ke lokal/default karena: {e}")
     
     # 2. Load Dataset Hasil Preprocessing
-    # Menggunakan path relatif agar fleksibel saat dijalankan di komputer lokal maupun di dalam Docker Container
     data_dir = "heart_disease_preprocessing" 
     
     if not os.path.exists(data_dir):
-        # Fallback path jika struktur folder di Docker agak berbeda
         data_dir = "MLProject_Folder/heart_disease_preprocessing"
 
     X_train = pd.read_csv(f"{data_dir}/X_train.csv")
@@ -31,35 +44,30 @@ def run_retraining():
     y_train = pd.read_csv(f"{data_dir}/y_train.csv").values.ravel()
     y_test = pd.read_csv(f"{data_dir}/y_test.csv").values.ravel()
     
-    # 3. Proses Training Model
-    # Menggunakan parameter tetap (fixed) hasil tuning terbaik kemarin agar eksekusi cepat dan ringan
+    # 3. Aktifkan MLflow Autolog (Menggantikan Manual Logging)
+    mlflow.sklearn.autolog()
+    
+    # 4. Proses Training Model
     with mlflow.start_run(run_name="CI_Automated_Retraining"):
-        print("⏳ Sedang melatih ulang model di environment CI...")
+        print("⏳ Sedang melatih ulang model di environment CI dengan MLflow Autolog...")
         
-        # Inisialisasi model dengan hyperparameter terbaik hasil Kriteria 2
         model = RandomForestClassifier(
             n_estimators=100, 
             max_depth=10, 
             min_samples_split=2, 
             random_state=42
         )
+        
+        # Autolog otomatis merekam parameter dan metrik di baris ini
         model.fit(X_train, y_train)
         
-        # 4. Evaluasi & Manual Logging (Sesuai Syarat Skilled/Advance)
+        # Evaluasi akhir untuk konfirmasi di terminal
         y_pred = model.predict(X_test)
         acc = accuracy_score(y_test, y_pred)
         
-        # Catat parameter dan metrik secara manual
-        mlflow.log_param("n_estimators", 100)
-        mlflow.log_param("max_depth", 10)
-        mlflow.log_metric("accuracy", acc)
-        
-        # Simpan model sebagai artefak utama yang bisa di-serving nantinya
-        mlflow.sklearn.log_model(model, "model")
-        
         print(f"✨ Re-training Sukses!")
         print(f"Akurasi Model Baru: {acc:.4f}")
-        print("✅ Model baru berhasil disimpan ke MLflow Artifacts.")
+        print("✅ Parameter, metrik, dan artefak model berhasil dicatat otomatis oleh MLflow Autolog.")
 
 if __name__ == "__main__":
     run_retraining()
