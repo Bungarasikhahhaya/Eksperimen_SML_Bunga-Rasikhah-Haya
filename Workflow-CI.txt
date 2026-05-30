@@ -1,0 +1,11 @@
+Lokasi workflow:
+.github/workflows/ci.yml
+
+Repository Github workflow-ci:
+https://github.com/Bungarasikhahhaya/Workflow-CI
+
+Repository Github Akhir:
+https://github.com/Bungarasikhahhaya/Eksperimen_SML_Bunga-Rasikhah-Haya
+
+Github Action:
+https://github.com/Bungarasikhahhaya/Workflow-CI/actions
